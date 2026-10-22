@@ -36,6 +36,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:#3b2a1a;color:var(--fg
 <div id="jb"><i id="kn"></i></div>
 <div id="shop"><div id="sh"></div></div><div id="ov"><div id="ovb"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);const ne=s=>String(s).replace(/[\u{1F000}-\u{1FFFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{200D}\u{FE0F}]/gu,'');document.fonts&&document.fonts.load('20px Lalezar');
@@ -114,6 +115,8 @@ g.arms=[-.38,.38].map(x=>{const p=new THREE.Group();p.position.set(x,1.4,0);add(
 function anim(g,mv,dt,sp){if(mv){g.ph+=dt*sp*2.2;const s=Math.sin(g.ph);g.legs[0].rotation.x=s*.8;g.legs[1].rotation.x=-s*.8;if(!g.carry){g.arms[0].rotation.x=-s*.7;g.arms[1].rotation.x=s*.7}}else{g.legs[0].rotation.x=g.legs[1].rotation.x=0;if(!g.carry)g.arms[0].rotation.x=g.arms[1].rotation.x=0}if(g.carry)g.arms[0].rotation.x=g.arms[1].rotation.x=-1.2}
 const PL=person(0xffffff,0xe0ac69,0xd32f2f);PL.position.set(0,0,S.open?-3.4:36);
 const tray=new THREE.Group();tray.position.set(0,1.15,.55);PL.add(tray);
+// Load the licensed rigged character model; retain the original game controller and tray.
+(function(){try{if(!THREE.GLTFLoader)return;new THREE.GLTFLoader().load('assets/Superhero_Male_FullBody.gltf',function(gltf){const model=gltf.scene;model.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(model);const size=b.getSize(new THREE.Vector3());const center=b.getCenter(new THREE.Vector3());const h=size.y||1;model.scale.setScalar(1.8/h);model.position.set(-center.x*model.scale.x,-b.min.y*model.scale.y,-center.z*model.scale.z);model.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.DoubleSide}}});PL.children.slice().forEach(function(o){if(o!==tray)o.visible=false});PL.add(model);PL.userData.externalCharacter=model;},undefined,function(e){console.warn('Character model could not load; using original character.',e)});}catch(e){console.warn(e)}})();
 function plate(t,y){const g=new THREE.Group();cyl(.24,.06,0xffffff,0,y,0,g);cyl(.19,.1,t=='lamb'?0xc9a050:0xf2c94c,0,y+.06,0,g);const m=new THREE.Mesh(new THREE.SphereGeometry(.1,8,6),mat(t=='lamb'?0x6d3b1f:0xa0522d));m.position.set(0,y+.18,0);g.add(m);return g}
 function dirtyPlate(y){const g=new THREE.Group();cyl(.24,.06,0xeeeeee,0,y,0,g);cyl(.16,.03,0x8d6e63,0,y+.06,0,g);[[.05,.04],[-.07,-.03],[.0,-.09]].forEach(o=>{const b=new THREE.Mesh(new THREE.SphereGeometry(.045,6,5),mat(0xd7ccc8));b.position.set(o[0],y+.1,o[1]);g.add(b)});return g}
 let held=[];const cap=()=>2+S.up.tray;
