@@ -163,7 +163,7 @@ const popt=p=>{if(p.sex=='f'){const w=WOM[Math.min(p.outfit,WOM.length-1)];retur
 const rY=y=>.25+(1.575-y)*.136;
 // New GLB character is loaded asynchronously; the original outfit meshes remain the clothing layer.
 const avatarPeople=[];let avatarGLTF=null;const avatarAnimations={};
-function person(o,par){o=o||{};const f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),col=f?0x111111:(o.col==null?0xffffff:o.col),skin=o.skin||0xc68642,g=new THREE.Group(),b=new THREE.Group();g.add(b);g.bd=b;let outfitMode=true;
+function person(o,par){o=o||{};const f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),col=f?0x111111:(o.col==null?0xffffff:o.col),skin=o.skin||0xc68642,g=new THREE.Group(),b=new THREE.Group();g.add(b);g.bd=b;g.opts=o;let outfitMode=true;
 const add=(geo,c,x,y,z,p)=>{const m=new THREE.Mesh(geo,typeof c=='number'?mat(c):c);m.userData.avatarRole=outfitMode?'outfit':'body';m.position.set(x,y,z);(p||g).add(m);return m},
 fr=(w,h,c,y,dz)=>{const m=add(new THREE.BoxGeometry(w,h,.03),c,0,y,rY(y)+(dz||.014),b);m.rotation.x=-.135;return m},
 eye=(x,y,z,r)=>add(new THREE.SphereGeometry(r||.035,6,5),0x111111,x,y,z,b),
@@ -183,11 +183,97 @@ if(o.face=='b'){add(new THREE.BoxGeometry(.24,.32,.03),0x1c1c1c,0,1.8,.305,b);[-
 const lc=(st=='waiter'||st=='chef'||f)?0x111111:col,sl=st=='waiter'?0xffffff:col,hn=(f||st=='cleaner')?0x111111:skin;
 g.legs=[-.13,.13].map(x=>{const p=new THREE.Group();p.position.set(x,.6,0);add(new THREE.CylinderGeometry(.09,.09,.6,8),lc,0,-.3,0,p);add(new THREE.BoxGeometry(.18,.1,.3),0x1b1b1b,0,-.55,.06,p);g.add(p);return p});
 g.arms=[-.36,.36].map(x=>{const p=new THREE.Group();p.position.set(x,1.42,0);add(new THREE.CylinderGeometry(.075,.09,.55,8),sl,0,-.25,0,p);outfitMode=false;add(new THREE.SphereGeometry(.08,8,6),hn,0,-.57,0,p);outfitMode=true;g.add(p);return p});g.ph=Math.random()*6;g.wp=g.ph;(par||sc).add(g);avatarPeople.push(g);if(avatarGLTF)upgradeAvatar(g);return g}
-function upgradeAvatar(g){if(!avatarGLTF||!g||g.userData.avatarUpgraded)return;try{
+// ================= نظام الملابس (ملابس مُسكَّنة على نفس هيكل العظام) =================
+// الفكرة: نأخذ شبكة جسم الشخصية نفسها، ننسخ منها الأجزاء المطلوبة (جذع/أذرع/أرجل)، ننفخها قليلاً للخارج،
+// ونربطها بنفس الهيكل العظمي، فتتحرك مع كل الحركات تلقائياً. الشماغ والعقال والقبعات تُربط بعظمة الرأس.
+const CLM=new THREE.MeshLambertMaterial({vertexColors:true,skinning:true}),CAM=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}),CLG={};
+function clAcc(a){const il=a.isInterleavedBufferAttribute,arr=il?a.data.array:a.array,st=il?a.data.stride:a.itemSize,of=il?a.offset:0,nm=!!a.normalized,d=arr instanceof Int16Array?32767:arr instanceof Int8Array?127:arr instanceof Uint16Array?65535:arr instanceof Uint8Array?255:1;return(i,k)=>{const x=arr[i*st+of+k];return nm?Math.max(x/d,-1):x}}
+// تصنيف العظمة: 0 جسم، 1 ذراع، 2 يد، 3 قدم، 4 رأس، 5 رقبة
+function clBoneCat(b){for(;b&&b.isBone;b=b.parent){const n=b.name.toLowerCase();if(/hand|finger|thumb|index|middle|ring|pinky|palm|wrist/.test(n))return 2;if(/foot|toe|ball/.test(n))return 3;if(/head/.test(n))return 4;if(/neck/.test(n))return 5;if(/arm|clavicle|shoulder|elbow/.test(n))return 1}return 0}
+function clInfo(m,rootInv){const ge=m.geometry,P=ge.attributes.position,SI=ge.attributes.skinIndex,SW=ge.attributes.skinWeight;if(!P||!SI||!SW||!m.skeleton)return null;if(!ge.attributes.normal)ge.computeVertexNormals();
+const gp=clAcc(P),gn=clAcc(ge.attributes.normal),gi=clAcc(SI),gw=clAcc(SW),n=P.count,Rv=new THREE.Matrix4().multiplyMatrices(rootInv,m.matrixWorld),k=new THREE.Vector3().setFromMatrixScale(Rv).x||1,bc=m.skeleton.bones.map(clBoneCat),v=new THREE.Vector3();
+const I={n,k,Rv,gp,X:new Float32Array(n),Y:new Float32Array(n),Z:new Float32Array(n),NX:new Float32Array(n),NY:new Float32Array(n),NZ:new Float32Array(n),T:new Float32Array(n),c:new Uint8Array(n),S:new Float32Array(n*3),minY:1e9,maxY:-1e9};
+for(let i=0;i<n;i++){v.set(gp(i,0),gp(i,1),gp(i,2)).applyMatrix4(Rv);I.X[i]=v.x;I.Y[i]=v.y;I.Z[i]=v.z;if(v.y<I.minY)I.minY=v.y;if(v.y>I.maxY)I.maxY=v.y;
+v.set(gn(i,0),gn(i,1),gn(i,2)).transformDirection(Rv);I.NX[i]=v.x;I.NY[i]=v.y;I.NZ[i]=v.z;
+let bi=0,bw=-1;for(let j=0;j<4;j++){const w=gw(i,j);if(w>bw){bw=w;bi=gi(i,j)}}I.c[i]=bc[bi]||0}
+// تنعيم الأنوال عند اللحامات حتى لا تتشقق الملابس بعد النفخ
+const eps=Math.max(1e-5,(I.maxY-I.minY)*1e-4),mp=new Map(),keys=new Array(n);
+for(let i=0;i<n;i++){const key=Math.round(I.X[i]/eps)+'_'+Math.round(I.Y[i]/eps)+'_'+Math.round(I.Z[i]/eps);keys[i]=key;let e=mp.get(key);if(!e){e=[0,0,0];mp.set(key,e)}e[0]+=gn(i,0);e[1]+=gn(i,1);e[2]+=gn(i,2)}
+for(let i=0;i<n;i++){const e=mp.get(keys[i]),l=Math.hypot(e[0],e[1],e[2])||1;I.S[i*3]=e[0]/l;I.S[i*3+1]=e[1]/l;I.S[i*3+2]=e[2]/l}
+return I}
+// بناء هندسة الملابس: كل طبقة = مجموعة مثلثات من الجسم منفوخة للخارج وملوّنة
+function clGeo(m,I,L){const ge=m.geometry,gi=clAcc(ge.attributes.skinIndex),gw=clAcc(ge.attributes.skinWeight),gp=I.gp,idx=ge.index,n=I.n,tc=idx?idx.count/3:Math.floor(n/3),pos=[],nor=[],si=[],sw=[],col=[],ind=[],c=new THREE.Color();let nv=0;
+for(const l of L){const map=new Int32Array(n).fill(-1);
+for(let t=0;t<tc;t++){const a=idx?idx.getX(t*3):t*3,b=idx?idx.getX(t*3+1):t*3+1,d=idx?idx.getX(t*3+2):t*3+2;
+if(!(l.sel(a)&&l.sel(b)&&l.sel(d)))continue;if(l.skip&&l.skip(a,b,d))continue;
+for(const v of [a,b,d]){if(map[v]<0){map[v]=nv++;const o=l.off(v)/I.k;pos.push(gp(v,0)+I.S[v*3]*o,gp(v,1)+I.S[v*3+1]*o,gp(v,2)+I.S[v*3+2]*o);nor.push(I.S[v*3],I.S[v*3+1],I.S[v*3+2]);si.push(gi(v,0),gi(v,1),gi(v,2),gi(v,3));sw.push(gw(v,0),gw(v,1),gw(v,2),gw(v,3));c.setHex(l.vc?l.vc(v):l.col);col.push(c.r,c.g,c.b)}ind.push(map[v])}}}
+if(!nv)return null;
+const r=new THREE.BufferGeometry();r.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));r.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));r.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(si,4));r.setAttribute('skinWeight',new THREE.Float32BufferAttribute(sw,4));r.setAttribute('color',new THREE.Float32BufferAttribute(col,3));r.setIndex(ind);return r}
+// دمج قطع صغيرة ملوّنة (شعر/عيون/عقال...) في هندسة واحدة
+function clMerge(list){const P=[],N=[],C=[],col=new THREE.Color();for(const [g0,hex] of list){const g1=g0.index?g0.toNonIndexed():g0,p=g1.attributes.position.array,nn=g1.attributes.normal.array;col.setHex(hex);for(let i=0;i<p.length;i++){P.push(p[i]);N.push(nn[i])}for(let i=0;i<p.length/3;i++)C.push(col.r,col.g,col.b)}
+const r=new THREE.BufferGeometry();r.setAttribute('position',new THREE.Float32BufferAttribute(P,3));r.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));r.setAttribute('color',new THREE.Float32BufferAttribute(C,3));return r}
+function clPlace(geo,px,py,pz,sx,sy,sz,rx){const m=new THREE.Matrix4().compose(new THREE.Vector3(px,py,pz),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx||0,0,0)),new THREE.Vector3(sx,sy,sz)),g2=geo.clone();g2.applyMatrix4(m);return g2}
+
+function dressAvatar(g,root){
+const o=g.opts||{},f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),colO=o.col==null?0xffffff:o.col;
+root.updateMatrixWorld(true);
+const rootInv=new THREE.Matrix4().copy(root.matrixWorld).invert();
+const sms=[];root.traverse(m=>{if(m.isSkinnedMesh&&!/eye|teeth|tooth|lash|brow|tongue|hair/i.test(m.name))sms.push(m)});
+if(!sms.length)return;
+const infos=sms.map(m=>clInfo(m,rootInv));let mi=-1,best=0;infos.forEach((I,i)=>{if(I&&I.n>best){best=I.n;mi=i}});if(mi<0)return;
+const M0=infos[mi],y0=M0.minY,H=M0.maxY-M0.minY;if(!(H>0))return;
+infos.forEach(I=>{if(I)for(let i=0;i<I.n;i++)I.T[i]=(I.Y[i]-y0)/H});
+// ---- أبعاد الرأس (من عظام الرأس، وإلا من أعلى 12% من الجسم) ----
+let hx0=1e9,hx1=-1e9,hy0=1e9,hy1=-1e9,hz0=1e9,hz1=-1e9,hc=0;const isH=i=>M0.c[i]==4;
+for(let i=0;i<M0.n;i++)if(isH(i)){hc++;hx0=Math.min(hx0,M0.X[i]);hx1=Math.max(hx1,M0.X[i]);hy0=Math.min(hy0,M0.Y[i]);hy1=Math.max(hy1,M0.Y[i]);hz0=Math.min(hz0,M0.Z[i]);hz1=Math.max(hz1,M0.Z[i])}
+let hh=hy1-hy0;
+if(!hc||!(hh>H*.06&&hh<H*.3)){hx0=-.1*H*.5;hx1=.1*H*.5;hz0=-.1*H*.5;hz1=.1*H*.5;hy0=y0+.87*H;hy1=y0+H;hh=hy1-hy0;hc=0}
+const hw=hx1-hx0,hd=hz1-hz0,cx=(hx0+hx1)/2,cz=(hz0+hz1)/2;
+// ---- طبقات الملابس لكل زي ----
+const mkLayers=I=>{const c=I.c,T=I.T,X=I.X,L=[],lay=(sel,off,col,ex)=>L.push(Object.assign({sel,off,col},ex||{})),cov=i=>c[i]==0||c[i]==1,flare=(i,a,b)=>H*(a+b*Math.max(0,(.52-T[i])/.52)),
+top=i=>c[i]==1||(c[i]==0&&T[i]>=.5),bot=i=>c[i]==0&&T[i]<.54&&T[i]>.045,torso=(i,a,b)=>c[i]==0&&T[i]>=a&&T[i]<b;
+lay(i=>c[i]==3,()=>H*.007,0x1b1b1b);// أحذية
+if(st=='thobe'){lay(i=>cov(i)&&T[i]>.05,i=>c[i]==1?H*.015:(T[i]>.52?H*.017:flare(i,.02,.032)),colO)}
+else if(st=='abaya'){lay(i=>c[i]<=2&&T[i]>.03,i=>c[i]==2?H*.007:c[i]==1?H*.02:(T[i]>.52?H*.022:flare(i,.026,.05)),0x111111);
+const lo=o.face=='b'?.53:.47,hi=o.face=='b'?.61:.66;
+lay(i=>c[i]==4||c[i]==5,()=>H*.018,0x111111,{skip:(a,b,d)=>{const u=((I.Y[a]+I.Y[b]+I.Y[d])/3-hy0)/hh,z=(I.Z[a]+I.Z[b]+I.Z[d])/3;return u>lo&&u<hi&&z>cz+.05*hd}})}
+else if(st=='chef'){lay(i=>c[i]==1||(c[i]==0&&T[i]>=.46),()=>H*.02,0xffffff);lay(i=>c[i]==0&&T[i]<.5&&T[i]>.045,()=>H*.012,0x33373b)}
+else if(st=='waiter'){lay(top,()=>H*.015,0xffffff);lay(i=>torso(i,.52,.8),()=>H*.021,0x15181a);lay(bot,()=>H*.012,0x15181a)}
+else if(st=='suit'){lay(bot,()=>H*.012,colO);
+lay(top,()=>H*.017,colO,{skip:(a,b,d)=>{const x=Math.abs((X[a]+X[b]+X[d])/3),t=(I.T[a]+I.T[b]+I.T[d])/3,nz=(I.NZ[a]+I.NZ[b]+I.NZ[d])/3;return x<H*.028&&t>.6&&t<.8&&nz>.2}});
+lay(i=>torso(i,.5,.82),()=>H*.011,0xffffff,{vc:i=>(Math.abs(X[i])<H*.016&&I.NZ[i]>.2&&T[i]>.58&&T[i]<.79)?0x7a1f1f:0xffffff})}
+else if(st=='cleaner'){lay(top,()=>H*.017,colO);lay(bot,()=>H*.012,colO);lay(i=>torso(i,.52,.8),()=>H*.024,0xff8f00);lay(i=>c[i]==2,()=>H*.008,0xffd54f)}
+return L};
+// ---- لصق الملابس على كل شبكة جسم ----
+sms.forEach((m,k)=>{const I=infos[k];if(!I)return;const key=m.name+'|'+m.geometry.uuid+'|'+st+'|'+colO+'|'+(o.face||'')+'|'+Math.round(hy0*1e3);
+let geo=CLG[key];if(geo===undefined){geo=CLG[key]=clGeo(m,I,mkLayers(I))}
+if(geo){const cm=new THREE.SkinnedMesh(geo,CLM);cm.name='Clothes';cm.matrix.copy(m.matrix);cm.matrix.decompose(cm.position,cm.quaternion,cm.scale);cm.bind(m.skeleton,m.bindMatrix);cm.frustumCulled=false;m.parent.add(cm)}});
+// ---- إكسسوارات الرأس: تُربط بعظمة الرأس ----
+const sk=sms[mi].skeleton,hb=sk.bones.find(b=>/^(mixamorig:?)?head$/i.test(b.name))||sk.bones.find(b=>/head/i.test(b.name)&&!/top|end/i.test(b.name));
+const Mt=new THREE.Matrix4();let tgt=root;
+if(hb){const bi=sk.bones.indexOf(hb);Mt.multiplyMatrices(sk.boneInverses[bi],sms[mi].bindMatrix).multiply(new THREE.Matrix4().copy(M0.Rv).invert());tgt=hb}
+const acc=[],part=(geo,col)=>acc.push([geo,col]),put=geo=>geo.applyMatrix4(Mt),B=(gm,mt)=>{const me=new THREE.Mesh(put(gm),mt);me.name='HeadGear';tgt.add(me);return me};
+// عيون
+let zf=-1e9;for(let i=0;i<M0.n;i++){const u=(M0.Y[i]-hy0)/hh;if((hc?isH(i):M0.T[i]>.87)&&u>.45&&u<.66&&Math.abs(M0.X[i]-cx)<hw*.3&&M0.Z[i]>zf)zf=M0.Z[i]}
+if(zf<-1e8)zf=cz+hd*.45;
+const er=.0075*H,sph=new THREE.SphereGeometry(1,8,6);
+[-1,1].forEach(s=>part(clPlace(sph,cx+s*hw*.2,hy0+.56*hh,zf-.3*er,er,er,er*.6),0x141414));
+if(st=='suit'||st=='waiter')part(clPlace(new THREE.SphereGeometry(1,16,10,0,Math.PI*2,0,Math.PI*.5),cx,hy0+.66*hh,cz,hw*.56,hh*.46,hd*.56),0x1a1a1a);
+if(st=='thobe'){
+const hm=o.hat=='rw'?SHM:WHM;
+B(clPlace(new THREE.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI*.52),cx,hy0+.7*hh,cz,hw*.6,hh*.5,hd*.6),hm);
+B(clPlace(new THREE.CylinderGeometry(1,1.3,1,24,3,true,Math.PI*.4,Math.PI*1.2),cx,hy0+.2*hh,cz,hw*.58,hh,hd*.58),hm);
+part(clPlace(new THREE.TorusGeometry(1,.1,6,24),cx,hy0+.72*hh,cz,hw*.6,hd*.6,hw*.6*1.3,Math.PI/2),0x111111);
+if(o.beard)part(clPlace(sph,cx,hy0+.2*hh,cz+hd*.22,hw*.38,hh*.2,hd*.3),0x222222)}
+else if(st=='chef'){part(clPlace(new THREE.CylinderGeometry(1,1,1,18),cx,hy0+1.02*hh,cz,hw*.58,hh*.5,hd*.58),0xffffff);part(clPlace(sph,cx,hy0+1.3*hh,cz,hw*.72,hh*.38,hd*.72),0xffffff)}
+else if(st=='cleaner'){part(clPlace(new THREE.SphereGeometry(1,16,10,0,Math.PI*2,0,Math.PI*.5),cx,hy0+.68*hh,cz,hw*.58,hh*.45,hd*.58),0x3a3f44);part(clPlace(new THREE.BoxGeometry(1,1,1),cx,hy0+.68*hh,cz+hd*.62,hw*.6,hh*.04,hd*.5),0x3a3f44)}
+if(acc.length){const me=new THREE.Mesh(put(clMerge(acc)),CAM);me.name='HeadParts';tgt.add(me)}
+}
+function upgradeAvatar(g){if(!avatarGLTF||!g||!g.parent||g.userData.avatarUpgraded)return;try{
 const root=THREE.SkeletonUtils.clone(avatarGLTF.scene);root.name='AnimatedMannequin';
 // The source model is 1.83 units tall; this scale aligns it with the existing game character proportions.
 root.scale.setScalar(1.18);root.position.set(0,0,0);
-root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;const mats=(Array.isArray(o.material)?o.material:[o.material]).map(m=>m.clone());mats.forEach(m=>{m.color.setHex(0xe0ac69);m.roughness=.84;m.metalness=0;m.needsUpdate=true});o.material=Array.isArray(o.material)?mats:mats[0];}});
+root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;const mats=(Array.isArray(o.material)?o.material:[o.material]).map(m=>m.clone());mats.forEach(m=>{m.color.setHex((g.opts&&g.opts.skin)||0xe0ac69);m.roughness=.84;m.metalness=0;m.needsUpdate=true});o.material=Array.isArray(o.material)?mats:mats[0];}});
 // Replacement stage: hide all meshes from the old procedural character to prevent duplicate bodies.
 // Clothing will be rebuilt for the new rig after the animation system is verified.
 // Keep the old groups in place temporarily because other gameplay code still references them.
@@ -195,9 +281,13 @@ g.traverse(o=>{if(o.isMesh)o.visible=false});
 g.add(root);g.avatarRoot=root;g.avatarMixer=new THREE.AnimationMixer(root);g.avatarActions={};
 for(const clip of avatarGLTF.animations){const act=g.avatarMixer.clipAction(clip);g.avatarActions[clip.name]=act;}
 const idle=g.avatarActions['Idle_Loop']||g.avatarActions['A_TPose']||Object.values(g.avatarActions)[0];if(idle){idle.reset().setEffectiveWeight(1).play();g.avatarCurrentAction=idle;}
+try{dressAvatar(g,root)}catch(e){console.warn('تعذر تلبيس الشخصية:',e)}
 g.userData.avatarUpgraded=true;
 }catch(e){console.warn('تعذر تجهيز الشخصية ثلاثية الأبعاد، سيتم استخدام الشخصية الأصلية:',e)}}
-function loadAvatarModel(){if(!THREE.GLTFLoader||!THREE.SkeletonUtils)return;const loader=new THREE.GLTFLoader();loader.load('Restaurant_Animation_Library_OPTIMIZED.glb',gltf=>{avatarGLTF=gltf;avatarPeople.slice().forEach(upgradeAvatar);console.info('تم تحميل الشخصية والحركات:',gltf.animations.length)},undefined,e=>console.warn('تعذر تحميل Restaurant_Animation_Library_OPTIMIZED.glb؛ سيستمر تشغيل النموذج الأصلي.',e));}
+function loadAvatarModel(){if(!THREE.GLTFLoader||!THREE.SkeletonUtils)return;const loader=new THREE.GLTFLoader(),N='Restaurant_Animation_Library_OPTIMIZED.glb',paths=[N,'assets/'+N,'models/'+N,'model/'+N,'glb/'+N,'Assets/'+N,'assets/UAL1_Standard.glb','assets/UAL1_Standard_RM.glb'],log=[];
+const tryLoad=k=>{if(k>=paths.length){console.warn('تعذر تحميل ملف الشخصية. نتائج المحاولات:\n'+log.join('\n')+'\nتأكد من مكان الملف واسمه بالضبط.');return}
+const u=new URL(paths[k],location.href).href;
+loader.load(u,gltf=>{avatarGLTF=gltf;avatarPeople.slice().forEach(upgradeAvatar);console.info('تم تحميل الشخصية من',u,'عدد الحركات:',gltf.animations.length,gltf.animations.map(a=>a.name).join(','))},undefined,e=>{log.push(u+' -> '+((e&&e.message)||'غير موجود/فشل الاتصال'));tryLoad(k+1)})};tryLoad(0)}
 loadAvatarModel();
 function anim(g,mv,dt,sp,a){a=a==null?1:a;if(g.avatarMixer){const nm=mv?(sp>=4?'Jog_Fwd_Loop':'Walk_Loop'):'Idle_Loop';const next=g.avatarActions&&g.avatarActions[nm];if(next&&next!==g.avatarCurrentAction){next.reset().setEffectiveWeight(1).play();if(g.avatarCurrentAction)g.avatarCurrentAction.crossFadeTo(next,.18,false);g.avatarCurrentAction=next;}g.avatarMixer.update(dt);}g.w=(g.w||0)+((mv?1:0)-(g.w||0))*Math.min(1,dt*9);const W=g.w,w=W*a,b=g.bd;if(mv)g.wp+=dt*sp*2.2;g.ph+=dt*1.8;const s=Math.sin(g.wp),c=Math.cos(g.wp);
 g.legs[0].rotation.x=s*.85*w;g.legs[1].rotation.x=-s*.85*w;g.legs[0].position.y=.6+Math.max(0,-c)*.07*w;g.legs[1].position.y=.6+Math.max(0,c)*.07*w;
