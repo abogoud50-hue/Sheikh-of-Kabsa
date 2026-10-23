@@ -285,7 +285,11 @@ try{dressAvatar(g,root)}catch(e){console.warn('تعذر تلبيس الشخصي�
 g.userData.avatarUpgraded=true;
 }catch(e){console.warn('تعذر تجهيز الشخصية ثلاثية الأبعاد، سيتم استخدام الشخصية الأصلية:',e)}}
 function loadAvatarModel(){if(!THREE.GLTFLoader||!THREE.SkeletonUtils)return;const loader=new THREE.GLTFLoader(),N='Restaurant_Animation_Library_OPTIMIZED.glb',paths=[N,'assets/'+N,'models/'+N,'model/'+N,'glb/'+N,'Assets/'+N,'assets/UAL1_Standard.glb','assets/UAL1_Standard_RM.glb'],log=[];
-const tryLoad=k=>{if(k>=paths.length){console.warn('تعذر تحميل ملف الشخصية. نتائج المحاولات:\n'+log.join('\n')+'\nتأكد من مكان الملف واسمه بالضبط.');return}
+const discover=()=>{if(!/\.github\.io$/.test(location.hostname))return;const owner=location.hostname.split('.')[0],seg=location.pathname.split('/')[1],repo=(seg&&!/\./.test(seg))?seg:owner+'.github.io',base=location.origin+((seg&&!/\./.test(seg))?'/'+seg:'')+'/';
+const go=br=>fetch('https://api.github.com/repos/'+owner+'/'+repo+'/git/trees/'+br+'?recursive=1').then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{const g=(j.tree||[]).map(t=>t.path).filter(p=>/\.glb$/i.test(p));console.info('ملفات glb الموجودة في المستودع:',g.join(' | '));const p=g.find(x=>x.endsWith(N))||g.find(x=>/UAL1_Standard\.glb$/i.test(x))||g[0];if(!p){console.warn('لا يوجد ملف glb في المستودع');return}
+loader.load(base+p.split('/').map(encodeURIComponent).join('/'),gltf=>{avatarGLTF=gltf;avatarPeople.slice().forEach(upgradeAvatar);console.info('تم تحميل الشخصية من',p,'الحركات:',gltf.animations.map(a=>a.name).join(','))},undefined,e=>console.warn('وُجد الملف',p,'لكن فشل تحميله',e))});
+go('main').catch(()=>go('master').catch(()=>console.warn('تعذر قراءة قائمة ملفات المستودع')))};
+const tryLoad=k=>{if(k>=paths.length){console.warn('تعذر تحميل ملف الشخصية من المسارات المعروفة:\n'+log.join('\n')+'\nجارٍ البحث عن الملف تلقائياً في مستودع GitHub...');discover();return}
 const u=new URL(paths[k],location.href).href;
 loader.load(u,gltf=>{avatarGLTF=gltf;avatarPeople.slice().forEach(upgradeAvatar);console.info('تم تحميل الشخصية من',u,'عدد الحركات:',gltf.animations.length,gltf.animations.map(a=>a.name).join(','))},undefined,e=>{log.push(u+' -> '+((e&&e.message)||'غير موجود/فشل الاتصال'));tryLoad(k+1)})};tryLoad(0)}
 loadAvatarModel();
