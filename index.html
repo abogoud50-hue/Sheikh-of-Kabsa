@@ -52,7 +52,7 @@ input[type=range]{padding:0;border:0;background:none;height:28px;accent-color:#f
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
-window.__start=function(){
+(function(){
 const $=id=>document.getElementById(id);const ne=s=>String(s).replace(/[\u{1F000}-\u{1FFFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{200D}\u{FE0F}]/gu,'');document.fonts&&document.fonts.load('20px Lalezar');
 if(!window.THREE){document.body.innerHTML='<p style="padding:30px">تعذّر تحميل مكتبة الرسومات. تأكد من الاتصال بالإنترنت وأعد المحاولة.</p>';return}
 const DEF=()=>({money:0,open:0,pile:0,cnt:{chicken:0,lamb:0},xp:0,lvl:1,stock:{rice:3,chicken:3,meat:0,spice:3},up:{lan:0,flag:0,tray:0,pot:0,speed:0,table:0,stove2:0,cook:0,server:0,cashier:0,cleaner:0,branch:0},rev:0,cost:0,loss:0,bills:0,debt:0,st:{served:0,cooked:0,cleaned:0,earned:0},mq:{serve:0,cook:0,clean:0,earn:0},mb:{serve:0,cook:0,clean:0,earn:0},pm:{rice:1,chicken:1,meat:1,spice:1},snd:true,prof:{name:'اللاعب',sex:'m',outfit:0,hat:1},mus:{on:0,tr:0},vol:{m:1,s:1},bf:{inc:0,spd:0},wl:{cook:1,server:1,cashier:1,cleaner:1},ctr:0,ps:0,rm:{hr:0,tr:0},sn:{},pad:0,nobill:0,ts:0,day:"",streak:0,dc:0,dcd:0,gift:0,wheel:"",tw:null,noads:0,combo:0});
@@ -161,15 +161,18 @@ UNI=[{id:'cook',n:'زي الطباخ',style:'chef',col:0xffffff},{id:'server',n:
 WOM=[{n:'نقاب أسود',f:'n'},{n:'برقع أسود',f:'b'}];
 const popt=p=>{if(p.sex=='f'){const w=WOM[Math.min(p.outfit,WOM.length-1)];return{sex:'f',face:w.f,skin:SKP}}const i=Math.min(p.outfit,MEN.length+UNI.length-1);if(i<MEN.length){const m=MEN[i];return{sex:'m',style:'thobe',col:m.c,hat:(m.d||!p.hat)?'w':'rw',skin:SKP}}const u=UNI[i-MEN.length];return{sex:'m',style:u.style,col:u.col,skin:SKP}};
 const rY=y=>.25+(1.575-y)*.136;
-function personOld(o,par){o=o||{};const f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),col=f?0x111111:(o.col==null?0xffffff:o.col),skin=o.skin||0xc68642,g=new THREE.Group(),b=new THREE.Group();g.add(b);g.bd=b;
-const add=(geo,c,x,y,z,p)=>{const m=new THREE.Mesh(geo,typeof c=='number'?mat(c):c);m.position.set(x,y,z);(p||g).add(m);return m},
+// New GLB character is loaded asynchronously; the original outfit meshes remain the clothing layer.
+const avatarPeople=[];let avatarGLTF=null;const avatarAnimations={};
+function person(o,par){o=o||{};const f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),col=f?0x111111:(o.col==null?0xffffff:o.col),skin=o.skin||0xc68642,g=new THREE.Group(),b=new THREE.Group();g.add(b);g.bd=b;let outfitMode=true;
+const add=(geo,c,x,y,z,p)=>{const m=new THREE.Mesh(geo,typeof c=='number'?mat(c):c);m.userData.avatarRole=outfitMode?'outfit':'body';m.position.set(x,y,z);(p||g).add(m);return m},
 fr=(w,h,c,y,dz)=>{const m=add(new THREE.BoxGeometry(w,h,.03),c,0,y,rY(y)+(dz||.014),b);m.rotation.x=-.135;return m},
 eye=(x,y,z,r)=>add(new THREE.SphereGeometry(r||.035,6,5),0x111111,x,y,z,b),
 hair=()=>add(new THREE.SphereGeometry(.275,14,10,0,Math.PI*2,0,Math.PI*.42),0x1a1a1a,0,1.84,0,b);
 if(f)add(new THREE.CylinderGeometry(.26,.46,1.38,14),col,0,.9,0,b);else add(new THREE.CylinderGeometry(.25,.42,1.25,14),col,0,.95,0,b);
 add(new THREE.CylinderGeometry(.27,.27,.08,14),(st=='waiter'||st=='suit')?0xffffff:col,0,1.45,0,b);
-add(new THREE.SphereGeometry(.26,14,12),skin,0,1.82,0,b);
+outfitMode=false;add(new THREE.SphereGeometry(.26,14,12),skin,0,1.82,0,b);
 if(!f){eye(-.09,1.83,.235);eye(.09,1.83,.235)}
+outfitMode=true;
 if(st=='thobe'){const hm=o.hat=='rw'?SHM:WHM;add(new THREE.SphereGeometry(.3,22,14,0,Math.PI*2,0,Math.PI*.45),hm,0,1.86,0,b);add(new THREE.CylinderGeometry(.3,.4,.55,28,3,true,Math.PI*.38,Math.PI*1.24),hm,0,1.64,0,b);const ag=add(new THREE.TorusGeometry(.28,.035,6,16),0x111111,0,1.97,0,b);ag.rotation.x=Math.PI/2;if(o.beard){const bd=add(new THREE.SphereGeometry(.2,10,8),0x222222,0,1.7,.07,b);bd.scale.set(1,.55,.9)}}
 else if(st=='chef'){add(new THREE.CylinderGeometry(.25,.27,.3,14),0xffffff,0,2.03,0,b);const t=add(new THREE.SphereGeometry(.3,12,10),0xffffff,0,2.24,0,b);t.scale.set(1,.7,1);[-1,1].forEach(s=>[1.38,1.2,1.02].forEach(y=>add(new THREE.SphereGeometry(.028,6,5),0x111111,s*.07,y,rY(y)+.026,b)))}
 else if(st=='waiter'){hair();add(new THREE.CylinderGeometry(.275,.365,.65,14),0x111111,0,1.19,0,b);add(new THREE.BoxGeometry(.16,.07,.04),0x111111,0,1.47,.285,b)}
@@ -179,79 +182,30 @@ else if(f){add(new THREE.SphereGeometry(.3,14,12),0x111111,0,1.82,0,b);add(new T
 if(o.face=='b'){add(new THREE.BoxGeometry(.24,.32,.03),0x1c1c1c,0,1.8,.305,b);[-1,1].forEach(s=>add(new THREE.BoxGeometry(.07,.03,.02),skin,s*.08,1.86,.322,b))}else{add(new THREE.BoxGeometry(.27,.065,.03),skin,0,1.86,.305,b);[-1,1].forEach(s=>eye(s*.07,1.86,.322,.026))}}
 const lc=(st=='waiter'||st=='chef'||f)?0x111111:col,sl=st=='waiter'?0xffffff:col,hn=(f||st=='cleaner')?0x111111:skin;
 g.legs=[-.13,.13].map(x=>{const p=new THREE.Group();p.position.set(x,.6,0);add(new THREE.CylinderGeometry(.09,.09,.6,8),lc,0,-.3,0,p);add(new THREE.BoxGeometry(.18,.1,.3),0x1b1b1b,0,-.55,.06,p);g.add(p);return p});
-g.arms=[-.36,.36].map(x=>{const p=new THREE.Group();p.position.set(x,1.42,0);add(new THREE.CylinderGeometry(.075,.09,.55,8),sl,0,-.25,0,p);add(new THREE.SphereGeometry(.08,8,6),hn,0,-.57,0,p);g.add(p);return p});g.ph=Math.random()*6;g.wp=g.ph;(par||sc).add(g);return g}
-// ---------- GLB character: skinned clothing on the mannequin skeleton ----------
-let CH=window.__CHAR||null;const CHS=1.1,CG={},CMT={},lerp=(a,b,t)=>a+(b-a)*t,sst=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t)};
-const smat=c=>CMT[c]||(CMT[c]=new THREE.MeshLambertMaterial({color:c,skinning:true,side:THREE.DoubleSide}));
-let CHI=null,CHO=null;
-function chInit(){if(CHI)return;CHI={};let s=null;CH.gltf.scene.traverse(m=>{if(m.isSkinnedMesh&&!s)s=m});s.skeleton.bones.forEach((b,i)=>CHI[b.name]=i);CHO={idle:CH.gltf.animations.find(a=>a.name=='Idle_Loop'),walk:CH.gltf.animations.find(a=>a.name=='Walk_Loop')}}
-const SPN=[['pelvis',.917],['spine_01',1.05],['spine_02',1.174],['spine_03',1.315]];
-const P_LONG=[[1.58,.112,.125,-.035],[1.54,.125,.13,-.035],[1.5,.17,.145,-.03],[1.46,.2,.16,-.02],[1.38,.19,.158,-.012],[1.25,.176,.15,0],[1.1,.172,.147,0],[.95,.19,.157,0],[.7,.215,.17,0],[.4,.25,.19,0],[.13,.28,.21,0]];
-const P_SHORT=P_LONG.slice(0,8).concat([[.8,.195,.16,0]]);
-const LGP=[[1,.105,.105,.01],[.93,.1,.1,.012],[.75,.088,.092,.016],[.53,.068,.072,-.01],[.35,.058,.066,-.045],[.11,.05,.055,-.04]];
-const SLR=[[.17,.098],[.3,.09],[.466,.08],[.6,.072],[.7,.064],[.74,.06],[.87,.052]];
-const itp=(T,x)=>{if(x<=T[0][0])return T[0][1];for(let i=0;i<T.length-1;i++)if(x<=T[i+1][0]){const t=(x-T[i][0])/(T[i+1][0]-T[i][0]);return lerp(T[i][1],T[i+1][1],t)}return T[T.length-1][1]};
-const pfn=(P,y)=>{if(y>=P[0][0])return P[0].slice(1);for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1];if(y<=a[0]&&y>=b[0]){const t=(a[0]-y)/(a[0]-b[0]);return[lerp(a[1],b[1],t),lerp(a[2],b[2],t),lerp(a[3],b[3],t)]}}return P[P.length-1].slice(1)};
-function skg(rings,wf){const seg=rings[0].length,P=[],I=[],W=[],ix=[];rings.forEach(r=>r.forEach(v=>{P.push(v[0],v[1],v[2]);const w=wf(v).filter(a=>a[1]>1e-4).sort((a,b)=>b[1]-a[1]).slice(0,4),s=w.reduce((t,a)=>t+a[1],0)||1;for(let k=0;k<4;k++){const a=w[k];I.push(a?CHI[a[0]]:0);W.push(a?a[1]/s:0)}}));
-for(let i=0;i<rings.length-1;i++)for(let k=0;k<seg;k++){const a=i*seg+k,b=i*seg+(k+1)%seg,c=a+seg,d=b+seg;ix.push(a,c,b,b,c,d)}
-const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(I,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(W,4));g.setIndex(ix);g.computeVertexNormals();return g}
-// torso/skirt weights: spine chain above the pelvis, thighs (and a little calf) below it
-function wT(v){const x=v[0],y=v[1];if(y>=1.488)return[['neck_01',1]];
-if(y>.917){let i=0;while(i<2&&y>SPN[i+1][1])i++;const a=SPN[i],b=SPN[i+1],t=Math.min(1,(y-a[1])/(b[1]-a[1]));return[[a[0],1-t],[b[0],t]]}
-const t=Math.min(1,(.917-y)/.25)*.8,c=Math.min(1,Math.max(0,(.53-y)/.2))*.45,sl=sst(-.07,.07,x);
-return[['pelvis',1-t],['thigh_l',t*(1-c)*sl],['thigh_r',t*(1-c)*(1-sl)],['calf_l',t*c*sl],['calf_r',t*c*(1-sl)]]}
-function vloft(P,yt,yb,pad){const R=[],n=22,N=Math.max(2,Math.round((yt-yb)/.04));for(let i=0;i<=N;i++){const y=yt-(yt-yb)*i/N,q=pfn(P,y),r=[];for(let k=0;k<n;k++){const t=k/n*6.2832;r.push([(q[0]+pad)*Math.sin(t),y,q[2]+(q[1]+pad)*Math.cos(t)])}R.push(r)}return skg(R,wT)}
-function sleeve(s,xe){const R=[],n=14,N=Math.round((xe-.17)/.035),L=s>0?'_l':'_r';for(let i=0;i<=N;i++){const x=.17+(xe-.17)*i/N,r=itp(SLR,x),q=[];for(let k=0;k<n;k++){const t=k/n*6.2832;q.push([s*x,1.447+r*Math.cos(t),-.065+r*Math.sin(t)])}R.push(q)}
-return skg(R,v=>{const x=Math.abs(v[0]),a=sst(.4,.53,x),h=sst(.7,.76,x);return[['upperarm'+L,1-a],['lowerarm'+L,a*(1-h)],['hand'+L,h]]})}
-function legT(s){const R=[],n=14,L=s>0?'_l':'_r';for(let i=0;i<=24;i++){const y=1-.89*i/24,q=pfn(LGP,y),r=[];for(let k=0;k<n;k++){const t=k/n*6.2832;r.push([s*.089+q[0]*Math.sin(t),y,q[2]+q[1]*Math.cos(t)])}R.push(r)}
-return skg(R,v=>{const ts=1-sst(.88,.97,v[1]),cs=1-sst(.48,.58,v[1]);return[['pelvis',1-ts],['thigh'+L,ts*(1-cs)],['calf'+L,ts*cs]]})}
-// scarf / hijab drape: open (or closed) tube reshaped around the head and shoulders
-function drapeG(top,bot,y0,y1,czB,czT,th,tl,ex){const g=new THREE.CylinderGeometry(1,1,1,28,8,true,th,tl),p=g.attributes.position;for(let i=0;i<p.count;i++){const t=p.getY(i)+.5,k=Math.pow(1-t,ex);p.setXYZ(i,p.getX(i)*lerp(top[0],bot[0],k),lerp(y0,y1,t),lerp(czT,czB,k)+p.getZ(i)*lerp(top[1],bot[1],k))}g.computeVertexNormals();return g}
-const HCG=pol=>new THREE.SphereGeometry(1,24,14,0,6.2832,0,pol),SHOEG=new THREE.BoxGeometry(.105,.07,.27),EYEG=new THREE.SphereGeometry(1,6,5),BTNG=new THREE.SphereGeometry(.012,6,5);
-function personGLB(o,par){chInit();o=o||{};const f=o.sex=='f',st=f?'abaya':(o.style||'thobe'),col=f?0x111111:(o.col==null?0xffffff:o.col),skin=o.skin||0xc68642;
-const g=new THREE.Group(),b=new THREE.Group(),wr=new THREE.Group();g.add(b);g.bd=b;g.glb=1;wr.scale.setScalar(CHS);b.add(wr);
-const root=THREE.SkeletonUtils.clone(CH.gltf.scene);wr.add(root);let s0=null;
-root.traverse(m=>{if(m.isSkinnedMesh){s0=s0||m;m.frustumCulled=false;const j=m.material&&m.material.name=='M_Joints';m.material=new THREE.MeshLambertMaterial({color:new THREE.Color(skin).multiplyScalar(j?.82:1),skinning:true})}});
-const B={};s0.skeleton.bones.forEach(x=>B[x.name]=x);wr.updateMatrixWorld(true);
-const cl=(k,mk,c)=>{const m=new THREE.SkinnedMesh(CG[k]||(CG[k]=mk()),smat(c));m.frustumCulled=false;s0.parent.add(m);m.bind(s0.skeleton,s0.bindMatrix);return m};
-const rg=(bn,m,x,y,z,rx)=>{m.position.set(x,y,z);if(rx)m.rotation.x=rx;wr.add(m);B[bn].attach(m);return m};
-const ell=(geo,c,sx,sy,sz)=>{const m=new THREE.Mesh(geo,typeof c=='number'?mat(c):c);m.scale.set(sx,sy,sz);return m};
-const bx=(w,h,d,c)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),typeof c=='number'?mat(c):c);
-const hair=()=>rg('Head',ell(HCG(Math.PI*.45),0x1a1a1a,.102,.12,.13),0,1.715,-.005);
-const long=st=='thobe'||f,glove=f,sl=st=='waiter'?0xffffff:col,lc=(st=='waiter'||st=='chef')?0x111111:col;
-// body clothes (skinned to the skeleton)
-if(long)cl(f?'ab':'th',()=>vloft(P_LONG,1.58,f?.11:.13,f?.012:0),col);else cl(st=='suit'?'shj':'sh',()=>vloft(P_SHORT,1.58,st=='suit'?.8:.86,0),col);
-[1,-1].forEach(s=>{cl('sl'+s+(glove?'g':''),()=>sleeve(s,glove?.87:.7),sl);if(!long)cl('lg'+s,()=>legT(s),lc);rg(s>0?'foot_l':'foot_r',new THREE.Mesh(SHOEG,mat(0x1b1b1b)),s*.089,.04,.045)});
-if(!f)[-1,1].forEach(s=>rg('Head',ell(EYEG,0x111111,.014,.014,.014),s*.034,1.703,.106));
-if(st=='thobe'){const hm=o.hat=='rw'?SHM:WHM;rg('Head',ell(HCG(Math.PI*.4),hm,.108,.125,.135),0,1.715,-.005);
-const dr=new THREE.Mesh(CG.dr||(CG.dr=drapeG([.103,.128],[.23,.21],1.36,1.755,-.02,-.005,Math.PI*.38,Math.PI*1.24,.6)),hm);rg('Head',dr,0,0,0);
-const ag=new THREE.Mesh(new THREE.TorusGeometry(1,.2,8,32),mat(0x111111));ag.scale.set(.108,.133,.108);rg('Head',ag,0,1.772,-.005,Math.PI/2);
-if(o.beard)rg('Head',ell(new THREE.SphereGeometry(1,10,8),0x222222,.075,.05,.085),0,1.59,.04)}
-else if(st=='chef'){rg('Head',ell(new THREE.CylinderGeometry(1,1.07,1,22),0xffffff,.108,.12,.135),0,1.84,-.005);rg('Head',ell(new THREE.SphereGeometry(1,14,10),0xffffff,.145,.1,.17),0,1.945,-.005);
-[-1,1].forEach(s=>[1.38,1.22,1.06].forEach(y=>{const q=pfn(P_SHORT,y);rg('spine_02',new THREE.Mesh(BTNG,mat(0x111111)),s*.04,y,q[2]+q[1]*Math.sqrt(1-Math.pow(.04/q[0],2))+.004)}))}
-else if(st=='waiter'){hair();cl('vest',()=>vloft(P_SHORT,1.43,.88,.012),0x111111);rg('spine_03',bx(.09,.035,.02,0x111111),0,1.5,.1)}
-else if(st=='suit'){hair();cl('collar',()=>vloft(P_LONG,1.58,1.5,.006),0xffffff);rg('spine_03',bx(.075,.38,.012,0xffffff),0,1.3,.152);rg('spine_03',bx(.028,.34,.012,0x111111),0,1.285,.158)}
-else if(st=='cleaner'){rg('Head',ell(HCG(Math.PI*.47),0x3a3f44,.106,.123,.134),0,1.715,-.005);rg('Head',bx(.15,.012,.1,0x3a3f44),0,1.757,.14,.15);rg('Head',bx(.12,.065,.03,0xffffff),0,1.615,.108);cl('belt',()=>vloft(P_SHORT,.99,.93,.012),0xcfd3d6)}
-else if(f){rg('Head',ell(new THREE.SphereGeometry(1,20,14),0x111111,.11,.135,.137),0,1.7,0);
-rg('Head',new THREE.Mesh(CG.hj||(CG.hj=drapeG([.11,.135],[.24,.2],1.33,1.64,-.02,0,0,6.2832,.6)),mat(0x111111)),0,0,0);
-if(o.face=='b'){rg('Head',bx(.13,.17,.014,0x1c1c1c),0,1.69,.136);[-1,1].forEach(s=>rg('Head',bx(.04,.014,.014,skin),s*.032,1.706,.142))}
-else{rg('Head',bx(.13,.032,.012,skin),0,1.705,.133);[-1,1].forEach(s=>rg('Head',ell(EYEG,0x111111,.011,.011,.011),s*.032,1.706,.14))}}
-// animation
-g.mx=new THREE.AnimationMixer(root);g.id=g.mx.clipAction(CHO.idle);g.wk=g.mx.clipAction(CHO.walk);g.id.play();g.wk.play();g.id.weight=1;g.wk.weight=0;g.id.time=Math.random()*2.4;g.mx.update(0);
-g.arms=[0,1].map(()=>({rotation:{x:0,z:0}}));g.legs=[{rotation:{x:0}},{rotation:{x:0}}];g.bones=B;g.wrap=wr;g.ph=g.wp=Math.random()*6;(par||sc).add(g);return g}
-const _qa=new THREE.Quaternion(),_ax=new THREE.Vector3(1,0,0);
-function brot(top,bone,ang){const a=[];for(let o=bone.parent;o&&o!==top;o=o.parent)a.push(o);const P=new THREE.Quaternion();for(let i=a.length-1;i>=0;i--)P.multiply(a[i].quaternion);bone.quaternion.premultiply(P.clone().invert().multiply(_qa.setFromAxisAngle(_ax,ang)).multiply(P))}
-function animGLB(g,mv,dt,sp,a){const W=(g.w=(g.w||0)+((mv?1:0)-(g.w||0))*Math.min(1,dt*9))*a;g.id.weight=1-W;g.wk.weight=W;g.wk.timeScale=Math.min(2.4,Math.max(.8,sp*.47));g.mx.update(dt);
-[0,1].forEach(i=>{const v=g.arms[i].rotation.x;if(v){const L=i?'_r':'_l';brot(g.wrap,g.bones['upperarm'+L],v*.46);brot(g.wrap,g.bones['lowerarm'+L],v*.92)}g.arms[i].rotation.x=g.carry?-1.2:0})}
-function person(o,par){if(CH){try{return personGLB(o,par)}catch(e){console.error('تعذر تجهيز الشخصية ثلاثية الأبعاد، سيتم استخدام الشخصية الاحتياطية:',e);CH=null;window.__CHAR=null}}return personOld(o,par)}
-function anim(g,mv,dt,sp,a){a=a==null?1:a;if(g.glb){if(g.animFailed)return;try{return animGLB(g,mv,dt,sp,a)}catch(e){console.error('تعذر تشغيل حركة الشخصية الجديدة:',e);g.animFailed=true;return}}g.w=(g.w||0)+((mv?1:0)-(g.w||0))*Math.min(1,dt*9);const W=g.w,w=W*a,b=g.bd;if(mv)g.wp+=dt*sp*2.2;g.ph+=dt*1.8;const s=Math.sin(g.wp),c=Math.cos(g.wp);
+g.arms=[-.36,.36].map(x=>{const p=new THREE.Group();p.position.set(x,1.42,0);add(new THREE.CylinderGeometry(.075,.09,.55,8),sl,0,-.25,0,p);outfitMode=false;add(new THREE.SphereGeometry(.08,8,6),hn,0,-.57,0,p);outfitMode=true;g.add(p);return p});g.ph=Math.random()*6;g.wp=g.ph;(par||sc).add(g);avatarPeople.push(g);if(avatarGLTF)upgradeAvatar(g);return g}
+function upgradeAvatar(g){if(!avatarGLTF||!g||g.userData.avatarUpgraded)return;try{
+const root=THREE.SkeletonUtils.clone(avatarGLTF.scene);root.name='AnimatedMannequin';
+// The source model is 1.83 units tall; this scale aligns it with the existing game character proportions.
+root.scale.setScalar(1.18);root.position.set(0,0,0);
+root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;const mats=(Array.isArray(o.material)?o.material:[o.material]);mats.forEach(m=>{if(m.roughness!==undefined)m.roughness=Math.max(m.roughness||0,.65);m.needsUpdate=true});}});
+// Keep the procedural outfit pieces (thobe, head covering, agal, face covering, and staff uniforms),
+// while removing the old procedural head/eyes/hands so the new rig supplies the body.
+g.traverse(o=>{if(o.isMesh&&o.userData.avatarRole==='body')o.visible=false});
+g.add(root);g.avatarRoot=root;g.avatarMixer=new THREE.AnimationMixer(root);g.avatarActions={};
+for(const clip of avatarGLTF.animations){const act=g.avatarMixer.clipAction(clip);g.avatarActions[clip.name]=act;}
+const idle=g.avatarActions['Idle_Loop']||g.avatarActions['A_TPose']||Object.values(g.avatarActions)[0];if(idle){idle.reset().setEffectiveWeight(1).play();g.avatarCurrentAction=idle;}
+g.userData.avatarUpgraded=true;
+}catch(e){console.warn('تعذر تجهيز الشخصية ثلاثية الأبعاد، سيتم استخدام الشخصية الأصلية:',e)}}
+function loadAvatarModel(){if(!THREE.GLTFLoader||!THREE.SkeletonUtils)return;const loader=new THREE.GLTFLoader();loader.load('Restaurant_Animation_Library_OPTIMIZED.glb',gltf=>{avatarGLTF=gltf;avatarPeople.slice().forEach(upgradeAvatar);console.info('تم تحميل مكتبة شخصية المطعم والحركات:',gltf.animations.length)},undefined,e=>console.warn('تعذر تحميل Restaurant_Animation_Library_OPTIMIZED.glb؛ سيستمر تشغيل النموذج الأصلي.',e));}
+loadAvatarModel();
+function anim(g,mv,dt,sp,a){a=a==null?1:a;if(g.avatarMixer){const wanted=g.avatarState||(mv?(sp>=4?'Jog_Fwd_Loop':'Walk_Loop'):'Idle_Loop');const nm=(g.avatarActions&&g.avatarActions[wanted])?wanted:(mv?(g.avatarActions&&g.avatarActions['Walk_Loop']?'Walk_Loop':'Idle_Loop'):'Idle_Loop');const next=g.avatarActions&&g.avatarActions[nm];if(next&&next!==g.avatarCurrentAction){next.reset().setEffectiveWeight(1).play();if(g.avatarCurrentAction)g.avatarCurrentAction.crossFadeTo(next,.18,false);g.avatarCurrentAction=next;}g.avatarMixer.update(dt);}g.w=(g.w||0)+((mv?1:0)-(g.w||0))*Math.min(1,dt*9);const W=g.w,w=W*a,b=g.bd;if(mv)g.wp+=dt*sp*2.2;g.ph+=dt*1.8;const s=Math.sin(g.wp),c=Math.cos(g.wp);
 g.legs[0].rotation.x=s*.85*w;g.legs[1].rotation.x=-s*.85*w;g.legs[0].position.y=.6+Math.max(0,-c)*.07*w;g.legs[1].position.y=.6+Math.max(0,c)*.07*w;
 if(!g.carry){g.arms[0].rotation.x=-s*.75*w;g.arms[1].rotation.x=s*.75*w;g.arms[0].rotation.z=.05*W;g.arms[1].rotation.z=-.05*W}
 g.position.y=Math.abs(s)*.065*w;b.rotation.z=s*.05*w;b.rotation.y=-s*.12*w;b.rotation.x=.14*w;b.scale.y=1+Math.sin(g.ph)*.012*(1-W);
 if(g.carry)g.arms[0].rotation.x=g.arms[1].rotation.x=-1.2}
 let PL=person(popt(S.prof));PL.position.set(0,0,S.open?-3.4:36);
-const tray=new THREE.Group();tray.position.set(0,CH?1.3:1.15,CH?.46:.55);PL.add(tray);
-const NL=label(1.7,.46,238,64);NL.position.set(0,CH?2.5:2.8,0);PL.add(NL);
+const tray=new THREE.Group();tray.position.set(0,1.15,.55);PL.add(tray);
+const NL=label(1.7,.46,238,64);NL.position.set(0,2.8,0);PL.add(NL);
 function nameLbl(){NL.draw((q,w,h)=>{q.fillStyle='#000a';rr(q,2,2,w-4,h-4,16);q.fill();q.fillStyle='#fff';q.font='700 30px sans-serif';q.textAlign='center';q.fillText(S.prof.name,w/2,h*.7)})}nameLbl();
 function rebuildPlayer(){const o=PL,n=person(popt(S.prof));n.position.copy(o.position);n.rotation.y=o.rotation.y;n.add(tray);n.add(NL);sc.remove(o);PL=n;updTray();nameLbl()}
 function plate(t,y){const g=new THREE.Group();cyl(.24,.06,0xffffff,0,y,0,g);cyl(.19,.1,t=='lamb'?0xc9a050:0xf2c94c,0,y+.06,0,g);const m=new THREE.Mesh(new THREE.SphereGeometry(.1,8,6),mat(t=='lamb'?0x6d3b1f:0xa0522d));m.position.set(0,y+.18,0);g.add(m);return g}
@@ -299,16 +253,16 @@ if(c.noseat){q.font='bold 26px sans-serif';q.fillStyle='#e53935';q.fillText('X',
 const p=Math.max(0,c.pat/c.max);q.fillStyle='#0008';q.fillRect(18,bh-19,w-36,9);q.fillStyle=p>.5?'#66bb6a':p>.25?'#ffa726':'#e53935';q.fillRect(18,bh-19,(w-36)*p,9)}
 function takeOrder(c,s){S.cnt[c.type]-=c.q;updCounter();comboT=9;S.combo++;S.dc++;const cm=1+Math.min(.5,(S.combo-1)*.1),inc=Math.round(RC[c.type].p*c.q*(.6+.4*c.pat/c.max)*c.mul*cm*(1+.15*(S.up.lan+S.up.flag))*(S.bf.inc>0?2:1));pop(S.combo>1?'🔥 كومبو ×'+S.combo:PH[Math.random()*PH.length|0],c.g.position.x,2.8,c.g.position.z);S.pile+=inc;S.rev+=inc;S.st.earned+=inc;S.st.served++;updCash();gain(12);
 s.occ=c;c.seat=s;const sd=s.x<0?-1:1;c.pts=[[sd*1.9,-.3],[sd*1.9,s.z],[s.x,s.z]];c.st='go';c.l.visible=false;snd('order');dirty=true;save()}
-function sit(c){const s=c.seat;c.st='eat';c.e=16;c.g.position.set(s.x,-.4,s.z);c.g.rotation.y=Math.atan2(s.cx-s.x,s.cz-s.z);c.pm=plate(c.type,0);c.pm.position.set(s.x+(s.cx-s.x)*.62,.13,s.z+(s.cz-s.z)*.62);sc.add(c.pm)}
-function leave(c){if(c.st=='eat'){const s=c.seat;s.occ=null;s.dirty=true;const m=dirtyPlate(0);m.position.copy(c.pm.position);sc.add(m);sc.remove(c.pm);c.g.position.y=0;dirt.push({m,s})}c.st='out';c.l.visible=false}
+function sit(c){const s=c.seat;c.st='eat';c.e=16;c.g.avatarState='Sitting_Idle_Loop';c.g.position.set(s.x,-.4,s.z);c.g.rotation.y=Math.atan2(s.cx-s.x,s.cz-s.z);c.pm=plate(c.type,0);c.pm.position.set(s.x+(s.cx-s.x)*.62,.13,s.z+(s.cz-s.z)*.62);sc.add(c.pm)}
+function leave(c){c.g.avatarState='Sitting_Exit';if(c.st=='eat'){const s=c.seat;s.occ=null;s.dirty=true;const m=dirtyPlate(0);m.position.copy(c.pm.position);sc.add(m);sc.remove(c.pm);c.g.position.y=0;dirt.push({m,s})}c.st='out';c.l.visible=false}
 function pickDirt(d){sc.remove(d.m);d.s.dirty=false;const i=dirt.indexOf(d);if(i>=0)dirt.splice(i,1);dirty=true}
 function collect(x,z){const v=S.pile;if(!v)return;S.money+=v;S.pile=0;updCash();pop('+'+v+'💰',x,2.6,z);coin();dirty=true;save()}
 // ---------- visible staff ----------
 const WK={};
 function addWorker(k){if(WK[k])return;const c={cook:[0,-6,-6.2],cook2:[0,-2.6,-6.2],server:[0,-4.4,-6.2],cashier:[0,0,-3.4],cleaner:[0,-8,-3.4]}[k],u=UNI.find(x=>x.id==(k=='cook2'?'cook':k)),g=person({style:u.style,col:u.col,skin:k=='cook2'?0x8d5524:0xc68642});g.position.set(c[1],0,c[2]);WK[k]={g,k,hx:c[1],hz:c[2],st:'idle',t:0}}
 function syncCook2(){const need=!!WK.cook&&!!S.up.stove2;if(need&&!WK.cook2)addWorker('cook2');else if(!need&&WK.cook2){sc.remove(WK.cook2.g);delete WK.cook2}}
-function wgo(w,tx,tz,dt,sp=3){sp*=1+.25*((S.wl[w.k]||S.wl.cook)-1);const g=w.g,dx=tx-g.position.x,dz=tz-g.position.z,d=Math.hypot(dx,dz);if(d<.08){anim(g,false,dt,sp);return true}const s=Math.min(d,sp*dt);g.position.x+=dx/d*s;g.position.z+=dz/d*s;g.rotation.y=Math.atan2(dx,dz);anim(g,true,dt,sp);return false}
-function wcarry(w,t){if(w.pl){w.g.remove(w.pl);w.pl=null}w.g.carry=!!t;if(t){w.pl=t=='dirty'?dirtyPlate(0):plate(t,0);w.pl.position.set(0,CH?1.32:1.2,CH?.46:.55);w.g.add(w.pl)}}
+function wgo(w,tx,tz,dt,sp=3){w.g.avatarState=w.g.carry?'Walk_Formal_Loop':null;sp*=1+.25*((S.wl[w.k]||S.wl.cook)-1);const g=w.g,dx=tx-g.position.x,dz=tz-g.position.z,d=Math.hypot(dx,dz);if(d<.08){anim(g,false,dt,sp);return true}const s=Math.min(d,sp*dt);g.position.x+=dx/d*s;g.position.z+=dz/d*s;g.rotation.y=Math.atan2(dx,dz);anim(g,true,dt,sp);return false}
+function wcarry(w,t){if(w.pl){w.g.remove(w.pl);w.pl=null}w.g.carry=!!t;if(t){w.pl=t=='dirty'?dirtyPlate(0):plate(t,0);w.pl.position.set(0,1.2,.55);w.g.add(w.pl)}}
 function staff(dt){let w;
 syncCook2();[['cook',0],['cook2',1]].forEach(([k,pi])=>{const w=WK[k];if(!w)return;const p=PT[pi];wgo(w,w.hx,w.hz,dt);if(p.st=='idle'&&on2(p)&&startPot(p))p.t/=1+.3*(S.wl.cook-1);if(p.st=='cook'){w.g.rotation.y=Math.PI;w.g.arms.forEach((a,i)=>a.rotation.x=-1+Math.sin(pulse*6+i*2)*.4)}});
 if(w=WK.server){if(w.st=='idle'){wgo(w,w.hx,w.hz,dt);const p=PT.find(p=>p.st=='done'&&p.n>0&&on2(p)&&S.cnt[p.type]<CAP());if(p){w.p=p;w.st='toPot'}}
@@ -317,7 +271,7 @@ else if(w.st=='toCtr'){if(wgo(w,SX[w.item],-3.3,dt)){if(S.cnt[w.item]<CAP()){S.c
 if(w=WK.cashier){if(wgo(w,w.hx,w.hz,dt))turn(w.g,0,Math.min(1,dt*6))}
 if(w=WK.cleaner){const wp=()=>{if(!w.pa||!w.pa.length)return true;if(wgo(w,w.pa[0][0],w.pa[0][1],dt))w.pa.shift();return !w.pa.length};
 if(w.st=='idle'){wgo(w,w.hx,w.hz,dt);const d=dirt.find(d=>!d.cl);if(d){d.cl=1;w.d=d;const s=d.s,ex=s.cx+(s.cx<0?1.6:-1.6);w.ex=ex;w.pa=[[-3.6,-.2],[ex,.9],[ex,d.m.position.z]];w.rt=0;w.st='toD'}}
-else if(w.st=='toD'){const d=w.d;if(wp()){const m=d.m.position;anim(w.g,false,dt,3);turn(w.g,Math.atan2(m.x-w.g.position.x,m.z-w.g.position.z),.35);w.g.arms.forEach(a=>a.rotation.x=-1.1);w.rt+=dt;if(w.rt>.5){pickDirt(d);wcarry(w,'dirty');w.pa=[[w.ex,.9],[-3.6,-.2],[TR.x+.9,TR.z]];w.st='toT'}}}
+else if(w.st=='toD'){const d=w.d;if(wp()){const m=d.m.position;anim(w.g,false,dt,3);turn(w.g,Math.atan2(m.x-w.g.position.x,m.z-w.g.position.z),.35);w.g.arms.forEach(a=>a.rotation.x=-1.1);w.rt+=dt;if(w.rt>.5){w.g.avatarState='Crouch_Idle_Loop';pickDirt(d);wcarry(w,'dirty');w.pa=[[w.ex,.9],[-3.6,-.2],[TR.x+.9,TR.z]];w.st='toT'}}}
 else if(w.st=='toT'){if(wp()){wcarry(w,null);S.st.cleaned++;gain(4);w.st='idle'}}}}
 let comboT=0;const PH=['ما شاء الله 😍','يعطيك العافية 👌','كبسة تجنن! 🍗','الله يعطيك العافية'],LV=['😠','😤','🚪'];
 const DC={lan:[],flag:[]};for(let i=0;i<7;i++){DC.lan.push(box(.3,.45,.3,0xffb300,-8.4+i*2.8,1.9,-8.9));DC.flag.push(box(.9,.55,.06,0x1b8a3c,-9+i*3,2.3,12.05))}
@@ -498,7 +452,7 @@ else if(st=='cleaner'){q.fillStyle='#3a3f44';q.beginPath();q.arc(28,27,14,Math.P
 else{q.fillStyle='#1a1a1a';q.beginPath();q.arc(28,27,14,Math.PI,0);q.fill();if(st=='waiter'){q.fillStyle='#111';q.fillRect(22,46,12,4)}}}
 q.restore()}
 let pvS=null;
-function pvStart(){try{const c=$('pvc'),r=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true}),s=new THREE.Scene(),cm=new THREE.PerspectiveCamera(32,130/170,.1,50);r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.setSize(130,170,false);s.add(new THREE.HemisphereLight(0xffffff,0x887766,1.1));const d=new THREE.DirectionalLight(0xffffff,.6);d.position.set(3,5,6);s.add(d);cm.position.set(0,1.25,6.4);cm.lookAt(0,1.2,0);pvS={r,s,cm,m:null};pvSet();const f=()=>{if(!pvS)return;if(pvS.m)pvS.m.rotation.y+=.012;r.render(s,cm);pvS.raf=requestAnimationFrame(f)};f()}catch(e){pvS=null}}
+function pvStart(){try{const c=$('pvc'),r=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true}),s=new THREE.Scene(),cm=new THREE.PerspectiveCamera(32,130/170,.1,50);r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.setSize(130,170,false);s.add(new THREE.HemisphereLight(0xffffff,0x887766,1.1));const d=new THREE.DirectionalLight(0xffffff,.6);d.position.set(3,5,6);s.add(d);cm.position.set(0,1.18,6.6);cm.lookAt(0,1.12,0);pvS={r,s,cm,m:null};pvSet();const f=()=>{if(!pvS)return;if(pvS.m)pvS.m.rotation.y+=.012;r.render(s,cm);pvS.raf=requestAnimationFrame(f)};f()}catch(e){pvS=null}}
 function pvSet(){if(!pvS)return;if(pvS.m)pvS.s.remove(pvS.m);pvS.m=person(popt(S.prof),pvS.s);pvS.m.rotation.y=.4}
 function drawPf(){const p=S.prof,m=p.sex!='f',B=(a,t,on,dis)=>'<button class="tb'+(on?' on':'')+'" data-pf="'+a+'"'+(dis?' disabled':'')+'>'+t+'</button>',sp=t=>'<span style="font-size:12px;opacity:.8">'+t+'</span>';
 let h=sp('الشخصية')+'<div class="row">'+B('s:m','ذكر',m)+B('s:f','أنثى',!m)+'</div>'+sp('الملابس')+'<div class="row">';
@@ -573,12 +527,5 @@ OB.addEventListener('change',e=>{const r=e.target.closest&&e.target.closest('[da
 if(S.mus.sg)loadSong();
 showUnits();showStove2();showDeco();if(S.tw&&S.tw.t>0)addWorker(S.tw.k);Object.keys(WG).forEach(k=>{if(S.up[k])addWorker(k)});
 updTray();updCounter();updCash();requestAnimationFrame(loop);seed();welcome();
-};
-</script>
-<script>
-(function(){let started=false;function go(){if(started)return;started=true;try{window.__start()}catch(e){console.error('تعذر بدء اللعبة:',e);const c=document.getElementById('c');if(c){c.style.background='#3b2a1a'}const d=document.createElement('div');d.style.cssText='position:fixed;z-index:99;left:10px;right:10px;top:40%;padding:14px;background:#2a1a0f;color:#fff;border:2px solid #f2a900;border-radius:12px;text-align:center;font:16px sans-serif';d.textContent='تعذر تشغيل المشهد ثلاثي الأبعاد. أعد تحميل الصفحة؛ وإذا استمرت المشكلة أرسل لقطة للشاشة.';document.body.appendChild(d)}}
-try{if(!window.THREE||!THREE.GLTFLoader||!THREE.SkeletonUtils||!window.fetch)return go();
-const ok=gl=>{const n=(gl.animations||[]).map(a=>a.name);if(n.indexOf('Idle_Loop')>=0&&n.indexOf('Walk_Loop')>=0)window.__CHAR={gltf:gl};go()};
-const load=u=>fetch(u).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status+' loading '+u);return r.arrayBuffer()}).then(b=>new Promise((y,n)=>new THREE.GLTFLoader().parse(b,'',y,n)));
-load('character.glb').catch(()=>load('UAL1_Standard.glb')).then(ok,()=>go())}catch(e){console.error(e);go()}})();
+})();
 </script></body></html>
