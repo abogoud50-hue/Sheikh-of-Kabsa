@@ -186,27 +186,27 @@ g.arms=[-.36,.36].map(x=>{const p=new THREE.Group();p.position.set(x,1.42,0);add
 // ================= نظام الملابس (ملابس مُسكَّنة على نفس هيكل العظام) =================
 // الفكرة: نأخذ شبكة جسم الشخصية نفسها، ننسخ منها الأجزاء المطلوبة (جذع/أذرع/أرجل)، ننفخها قليلاً للخارج،
 // ونربطها بنفس الهيكل العظمي، فتتحرك مع كل الحركات تلقائياً. الشماغ والعقال والقبعات تُربط بعظمة الرأس.
-const CLM=new THREE.MeshLambertMaterial({vertexColors:true,skinning:true}),CAM=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}),CLG={};
+const CLM=new THREE.MeshLambertMaterial({vertexColors:true,skinning:true}),CAM=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,skinning:true}),CLG={},CSH=SHM.clone(),CWH=WHM.clone();CSH.skinning=CWH.skinning=true;
 function clAcc(a){const il=a.isInterleavedBufferAttribute,arr=il?a.data.array:a.array,st=il?a.data.stride:a.itemSize,of=il?a.offset:0,nm=!!a.normalized,d=arr instanceof Int16Array?32767:arr instanceof Int8Array?127:arr instanceof Uint16Array?65535:arr instanceof Uint8Array?255:1;return(i,k)=>{const x=arr[i*st+of+k];return nm?Math.max(x/d,-1):x}}
 // تصنيف العظمة: 0 جسم، 1 ذراع، 2 يد، 3 قدم، 4 رأس، 5 رقبة
 function clBoneCat(b){for(;b&&b.isBone;b=b.parent){const n=b.name.toLowerCase();if(/hand|finger|thumb|index|middle|ring|pinky|palm|wrist/.test(n))return 2;if(/foot|toe|ball/.test(n))return 3;if(/head/.test(n))return 4;if(/neck/.test(n))return 5;if(/arm|clavicle|shoulder|elbow/.test(n))return 1}return 0}
 function clInfo(m,rootInv){const ge=m.geometry,P=ge.attributes.position,SI=ge.attributes.skinIndex,SW=ge.attributes.skinWeight;if(!P||!SI||!SW||!m.skeleton)return null;if(!ge.attributes.normal)ge.computeVertexNormals();
 const gp=clAcc(P),gn=clAcc(ge.attributes.normal),gi=clAcc(SI),gw=clAcc(SW),n=P.count,Rv=new THREE.Matrix4().multiplyMatrices(rootInv,m.matrixWorld),k=new THREE.Vector3().setFromMatrixScale(Rv).x||1,bc=m.skeleton.bones.map(clBoneCat),v=new THREE.Vector3();
-const I={n,k,Rv,gp,X:new Float32Array(n),Y:new Float32Array(n),Z:new Float32Array(n),NX:new Float32Array(n),NY:new Float32Array(n),NZ:new Float32Array(n),T:new Float32Array(n),c:new Uint8Array(n),S:new Float32Array(n*3),minY:1e9,maxY:-1e9};
+const I={n,k,Rv,gp,X:new Float32Array(n),Y:new Float32Array(n),Z:new Float32Array(n),NX:new Float32Array(n),NY:new Float32Array(n),NZ:new Float32Array(n),T:new Float32Array(n),c:new Uint8Array(n),S:new Float32Array(n*3),SR:new Float32Array(n*3),bi:new Uint16Array(n),Rinv:new THREE.Matrix4().copy(Rv).invert(),minY:1e9,maxY:-1e9};
 for(let i=0;i<n;i++){v.set(gp(i,0),gp(i,1),gp(i,2)).applyMatrix4(Rv);I.X[i]=v.x;I.Y[i]=v.y;I.Z[i]=v.z;if(v.y<I.minY)I.minY=v.y;if(v.y>I.maxY)I.maxY=v.y;
 v.set(gn(i,0),gn(i,1),gn(i,2)).transformDirection(Rv);I.NX[i]=v.x;I.NY[i]=v.y;I.NZ[i]=v.z;
-let bi=0,bw=-1;for(let j=0;j<4;j++){const w=gw(i,j);if(w>bw){bw=w;bi=gi(i,j)}}I.c[i]=bc[bi]||0}
+let bi=0,bw=-1;for(let j=0;j<4;j++){const w=gw(i,j);if(w>bw){bw=w;bi=gi(i,j)}}I.c[i]=bc[bi]||0;I.bi[i]=bi}
 // تنعيم الأنوال عند اللحامات حتى لا تتشقق الملابس بعد النفخ
 const eps=Math.max(1e-5,(I.maxY-I.minY)*1e-4),mp=new Map(),keys=new Array(n);
-for(let i=0;i<n;i++){const key=Math.round(I.X[i]/eps)+'_'+Math.round(I.Y[i]/eps)+'_'+Math.round(I.Z[i]/eps);keys[i]=key;let e=mp.get(key);if(!e){e=[0,0,0];mp.set(key,e)}e[0]+=gn(i,0);e[1]+=gn(i,1);e[2]+=gn(i,2)}
-for(let i=0;i<n;i++){const e=mp.get(keys[i]),l=Math.hypot(e[0],e[1],e[2])||1;I.S[i*3]=e[0]/l;I.S[i*3+1]=e[1]/l;I.S[i*3+2]=e[2]/l}
+for(let i=0;i<n;i++){const key=Math.round(I.X[i]/eps)+'_'+Math.round(I.Y[i]/eps)+'_'+Math.round(I.Z[i]/eps);keys[i]=key;let e=mp.get(key);if(!e){e=[0,0,0,0,0,0];mp.set(key,e)}e[0]+=gn(i,0);e[1]+=gn(i,1);e[2]+=gn(i,2);e[3]+=I.NX[i];e[4]+=I.NY[i];e[5]+=I.NZ[i]}
+for(let i=0;i<n;i++){const e=mp.get(keys[i]),l=Math.hypot(e[0],e[1],e[2])||1;I.S[i*3]=e[0]/l;I.S[i*3+1]=e[1]/l;I.S[i*3+2]=e[2]/l;const l2=Math.hypot(e[3],e[4],e[5])||1;I.SR[i*3]=e[3]/l2;I.SR[i*3+1]=e[4]/l2;I.SR[i*3+2]=e[5]/l2}
 return I}
 // بناء هندسة الملابس: كل طبقة = مجموعة مثلثات من الجسم منفوخة للخارج وملوّنة
-function clGeo(m,I,L){const ge=m.geometry,gi=clAcc(ge.attributes.skinIndex),gw=clAcc(ge.attributes.skinWeight),gp=I.gp,idx=ge.index,n=I.n,tc=idx?idx.count/3:Math.floor(n/3),pos=[],nor=[],si=[],sw=[],col=[],ind=[],c=new THREE.Color();let nv=0;
+function clGeo(m,I,L){const ge=m.geometry,gi=clAcc(ge.attributes.skinIndex),gw=clAcc(ge.attributes.skinWeight),gp=I.gp,idx=ge.index,n=I.n,tc=idx?idx.count/3:Math.floor(n/3),pos=[],nor=[],si=[],sw=[],col=[],ind=[],c=new THREE.Color(),tv=new THREE.Vector3();let nv=0;
 for(const l of L){const map=new Int32Array(n).fill(-1);
 for(let t=0;t<tc;t++){const a=idx?idx.getX(t*3):t*3,b=idx?idx.getX(t*3+1):t*3+1,d=idx?idx.getX(t*3+2):t*3+2;
 if(!(l.sel(a)&&l.sel(b)&&l.sel(d)))continue;if(l.skip&&l.skip(a,b,d))continue;
-for(const v of [a,b,d]){if(map[v]<0){map[v]=nv++;const o=l.off(v)/I.k;pos.push(gp(v,0)+I.S[v*3]*o,gp(v,1)+I.S[v*3+1]*o,gp(v,2)+I.S[v*3+2]*o);nor.push(I.S[v*3],I.S[v*3+1],I.S[v*3+2]);si.push(gi(v,0),gi(v,1),gi(v,2),gi(v,3));sw.push(gw(v,0),gw(v,1),gw(v,2),gw(v,3));c.setHex(l.vc?l.vc(v):l.col);col.push(c.r,c.g,c.b)}ind.push(map[v])}}}
+for(const v of [a,b,d]){if(map[v]<0){map[v]=nv++;const o=l.off(v),e=l.mv?l.mv(v):null;tv.set(I.X[v]+I.SR[v*3]*o+(e?e[0]:0),I.Y[v]+I.SR[v*3+1]*o,I.Z[v]+I.SR[v*3+2]*o+(e?e[1]:0)).applyMatrix4(I.Rinv);pos.push(tv.x,tv.y,tv.z);nor.push(I.S[v*3],I.S[v*3+1],I.S[v*3+2]);si.push(gi(v,0),gi(v,1),gi(v,2),gi(v,3));sw.push(gw(v,0),gw(v,1),gw(v,2),gw(v,3));c.setHex(l.vc?l.vc(v):l.col);col.push(c.r,c.g,c.b)}ind.push(map[v])}}}
 if(!nv)return null;
 const r=new THREE.BufferGeometry();r.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));r.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));r.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(si,4));r.setAttribute('skinWeight',new THREE.Float32BufferAttribute(sw,4));r.setAttribute('color',new THREE.Float32BufferAttribute(col,3));r.setIndex(ind);return r}
 // دمج قطع صغيرة ملوّنة (شعر/عيون/عقال...) في هندسة واحدة
@@ -221,53 +221,56 @@ const rootInv=new THREE.Matrix4().copy(root.matrixWorld).invert();
 const sms=[];root.traverse(m=>{if(m.isSkinnedMesh&&!/eye|teeth|tooth|lash|brow|tongue|hair/i.test(m.name))sms.push(m)});
 if(!sms.length)return;
 const infos=sms.map(m=>clInfo(m,rootInv));let mi=-1,best=0;infos.forEach((I,i)=>{if(I&&I.n>best){best=I.n;mi=i}});if(mi<0)return;
-const M0=infos[mi],y0=M0.minY,H=M0.maxY-M0.minY;if(!(H>0))return;
+const M0=infos[mi],m0=sms[mi],y0=M0.minY,H=M0.maxY-M0.minY;if(!(H>0))return;
 infos.forEach(I=>{if(I)for(let i=0;i<I.n;i++)I.T[i]=(I.Y[i]-y0)/H});
-// ---- أبعاد الرأس (من عظام الرأس، وإلا من أعلى 12% من الجسم) ----
-let hx0=1e9,hx1=-1e9,hy0=1e9,hy1=-1e9,hz0=1e9,hz1=-1e9,hc=0;const isH=i=>M0.c[i]==4;
-for(let i=0;i<M0.n;i++)if(isH(i)){hc++;hx0=Math.min(hx0,M0.X[i]);hx1=Math.max(hx1,M0.X[i]);hy0=Math.min(hy0,M0.Y[i]);hy1=Math.max(hy1,M0.Y[i]);hz0=Math.min(hz0,M0.Z[i]);hz1=Math.max(hz1,M0.Z[i])}
-let hh=hy1-hy0;
-if(!hc||!(hh>H*.06&&hh<H*.3)){hx0=-.1*H*.5;hx1=.1*H*.5;hz0=-.1*H*.5;hz1=.1*H*.5;hy0=y0+.87*H;hy1=y0+H;hh=hy1-hy0;hc=0}
+// ---- أبعاد الرأس: من الارتفاع (الرأس ≈ أعلى 13.5% من الجسم) ----
+const hy1=y0+H,hy0=y0+H*.865,hh=hy1-hy0;let hx0=1e9,hx1=-1e9,hz0=1e9,hz1=-1e9,hn=0;
+for(let i=0;i<M0.n;i++)if(M0.T[i]>.885){hn++;hx0=Math.min(hx0,M0.X[i]);hx1=Math.max(hx1,M0.X[i]);hz0=Math.min(hz0,M0.Z[i]);hz1=Math.max(hz1,M0.Z[i])}
+if(!hn){hx0=-.09*H;hx1=.09*H;hz0=-.09*H;hz1=.09*H}
 const hw=hx1-hx0,hd=hz1-hz0,cx=(hx0+hx1)/2,cz=(hz0+hz1)/2;
-// ---- طبقات الملابس لكل زي ----
-const mkLayers=I=>{const c=I.c,T=I.T,X=I.X,L=[],lay=(sel,off,col,ex)=>L.push(Object.assign({sel,off,col},ex||{})),cov=i=>c[i]==0||c[i]==1,flare=(i,a,b)=>H*(a+b*Math.max(0,(.52-T[i])/.52)),
-top=i=>c[i]==1||(c[i]==0&&T[i]>=.5),bot=i=>c[i]==0&&T[i]<.54&&T[i]>.045,torso=(i,a,b)=>c[i]==0&&T[i]>=a&&T[i]<b;
-lay(i=>c[i]==3,()=>H*.007,0x1b1b1b);// أحذية
-if(st=='thobe'){lay(i=>cov(i)&&T[i]>.05,i=>c[i]==1?H*.015:(T[i]>.52?H*.017:flare(i,.02,.032)),colO)}
-else if(st=='abaya'){lay(i=>c[i]<=2&&T[i]>.03,i=>c[i]==2?H*.007:c[i]==1?H*.02:(T[i]>.52?H*.022:flare(i,.026,.05)),0x111111);
-const lo=o.face=='b'?.53:.47,hi=o.face=='b'?.61:.66;
-lay(i=>c[i]==4||c[i]==5,()=>H*.018,0x111111,{skip:(a,b,d)=>{const u=((I.Y[a]+I.Y[b]+I.Y[d])/3-hy0)/hh,z=(I.Z[a]+I.Z[b]+I.Z[d])/3;return u>lo&&u<hi&&z>cz+.05*hd}})}
-else if(st=='chef'){lay(i=>c[i]==1||(c[i]==0&&T[i]>=.46),()=>H*.02,0xffffff);lay(i=>c[i]==0&&T[i]<.5&&T[i]>.045,()=>H*.012,0x33373b)}
-else if(st=='waiter'){lay(top,()=>H*.015,0xffffff);lay(i=>torso(i,.52,.8),()=>H*.021,0x15181a);lay(bot,()=>H*.012,0x15181a)}
-else if(st=='suit'){lay(bot,()=>H*.012,colO);
-lay(top,()=>H*.017,colO,{skip:(a,b,d)=>{const x=Math.abs((X[a]+X[b]+X[d])/3),t=(I.T[a]+I.T[b]+I.T[d])/3,nz=(I.NZ[a]+I.NZ[b]+I.NZ[d])/3;return x<H*.028&&t>.6&&t<.8&&nz>.2}});
-lay(i=>torso(i,.5,.82),()=>H*.011,0xffffff,{vc:i=>(Math.abs(X[i])<H*.016&&I.NZ[i]>.2&&T[i]>.58&&T[i]<.79)?0x7a1f1f:0xffffff})}
-else if(st=='cleaner'){lay(top,()=>H*.017,colO);lay(bot,()=>H*.012,colO);lay(i=>torso(i,.52,.8),()=>H*.024,0xff8f00);lay(i=>c[i]==2,()=>H*.008,0xffd54f)}
+// مركز الحوض (لتوسيع الثوب والعباية للخارج)
+let px=0,pz=0,pn=0;for(let i=0;i<M0.n;i++)if(M0.c[i]==0&&M0.T[i]>.4&&M0.T[i]<.6){px+=M0.X[i];pz+=M0.Z[i];pn++}
+const pcx=pn?px/pn:0,pcz=pn?pz/pn:0;
+const mkLayers=I=>{const c=I.c,T=I.T,X=I.X,Z=I.Z,L=[],lay=(sel,off,col,ex)=>L.push(Object.assign({sel,off,col},ex||{})),cov=i=>c[i]==0||c[i]==1,
+top=i=>c[i]==1||(c[i]==0&&T[i]>=.5),bot=i=>c[i]==0&&T[i]<.54&&T[i]>.045,torso=(i,a,b)=>c[i]==0&&T[i]>=a&&T[i]<b,
+sk=(a)=>i=>{if(c[i]!=0||T[i]>=.56)return null;const s=a*Math.min(1,(.56-T[i])/.3);return[(X[i]-pcx)*s,(Z[i]-pcz)*s*.7]};// تنورة: توسيع الأرجل للخارج
+lay(i=>c[i]==3,()=>H*.007,0x1b1b1b);
+if(st=='thobe'){lay(i=>cov(i)&&T[i]>.05,i=>c[i]==1?H*.026:(T[i]>.5?H*.024:H*.03),colO,{mv:sk(1.05)})}
+else if(st=='abaya'){lay(i=>c[i]<=2&&T[i]>.03,i=>c[i]==2?H*.007:c[i]==1?H*.03:H*.03,0x111111,{mv:sk(1.3)});
+const lo=o.face=='b'?.55:.5,hi=o.face=='b'?.65:.72;
+lay(i=>c[i]==4||c[i]==5||T[i]>.88,()=>H*.022,0x111111,{skip:(a,b,d)=>{const u=((I.Y[a]+I.Y[b]+I.Y[d])/3-hy0)/hh,z=(I.Z[a]+I.Z[b]+I.Z[d])/3;return u>lo&&u<hi&&z>cz+.1*hd}})}
+else if(st=='chef'){lay(i=>c[i]==1||(c[i]==0&&T[i]>=.46),()=>H*.022,0xffffff);lay(i=>c[i]==0&&T[i]<.5&&T[i]>.045,()=>H*.014,0x33373b)}
+else if(st=='waiter'){lay(top,()=>H*.016,0xffffff);lay(i=>torso(i,.52,.8),()=>H*.022,0x15181a);lay(bot,()=>H*.014,0x15181a)}
+else if(st=='suit'){lay(bot,()=>H*.014,colO);
+lay(top,()=>H*.019,colO,{skip:(a,b,d)=>{const x=Math.abs((X[a]+X[b]+X[d])/3-pcx),t=(I.T[a]+I.T[b]+I.T[d])/3,nz=(I.NZ[a]+I.NZ[b]+I.NZ[d])/3;return x<H*.028&&t>.6&&t<.8&&nz>.2}});
+lay(i=>torso(i,.5,.82),()=>H*.012,0xffffff,{vc:i=>(Math.abs(X[i]-pcx)<H*.016&&I.NZ[i]>.2&&T[i]>.58&&T[i]<.79)?0x7a1f1f:0xffffff})}
+else if(st=='cleaner'){lay(top,()=>H*.018,colO);lay(bot,()=>H*.014,colO);lay(i=>torso(i,.52,.8),()=>H*.026,0xff8f00);lay(i=>c[i]==2,()=>H*.009,0xffd54f)}
 return L};
-// ---- لصق الملابس على كل شبكة جسم ----
-sms.forEach((m,k)=>{const I=infos[k];if(!I)return;const key=m.name+'|'+m.geometry.uuid+'|'+st+'|'+colO+'|'+(o.face||'')+'|'+Math.round(hy0*1e3);
+sms.forEach((m,k)=>{const I=infos[k];if(!I)return;const key=m.name+'|'+m.geometry.uuid+'|'+st+'|'+colO+'|'+(o.face||'');
 let geo=CLG[key];if(geo===undefined){geo=CLG[key]=clGeo(m,I,mkLayers(I))}
 if(geo){const cm=new THREE.SkinnedMesh(geo,CLM);cm.name='Clothes';cm.matrix.copy(m.matrix);cm.matrix.decompose(cm.position,cm.quaternion,cm.scale);cm.bind(m.skeleton,m.bindMatrix);cm.frustumCulled=false;m.parent.add(cm)}});
-// ---- إكسسوارات الرأس: تُربط بعظمة الرأس ----
-const sk=sms[mi].skeleton,hb=sk.bones.find(b=>/^(mixamorig:?)?head$/i.test(b.name))||sk.bones.find(b=>/head/i.test(b.name)&&!/top|end/i.test(b.name));
-const Mt=new THREE.Matrix4();let tgt=root;
-if(hb){const bi=sk.bones.indexOf(hb);Mt.multiplyMatrices(sk.boneInverses[bi],sms[mi].bindMatrix).multiply(new THREE.Matrix4().copy(M0.Rv).invert());tgt=hb}
-const acc=[],part=(geo,col)=>acc.push([geo,col]),put=geo=>geo.applyMatrix4(Mt),B=(gm,mt)=>{const me=new THREE.Mesh(put(gm),mt);me.name='HeadGear';tgt.add(me);return me};
-// عيون
-let zf=-1e9;for(let i=0;i<M0.n;i++){const u=(M0.Y[i]-hy0)/hh;if((hc?isH(i):M0.T[i]>.87)&&u>.45&&u<.66&&Math.abs(M0.X[i]-cx)<hw*.3&&M0.Z[i]>zf)zf=M0.Z[i]}
+// ---- إكسسوارات الرأس: مُسكَّنة 100% على عظمة الرأس (نفس طريقة الملابس) ----
+const cnt={};for(let i=0;i<M0.n;i++)if(M0.T[i]>.93){const b=M0.bi[i];cnt[b]=(cnt[b]||0)+1}
+let hbI=0,hbC=-1;for(const k in cnt)if(cnt[k]>hbC){hbC=cnt[k];hbI=+k}
+const skinPart=(geo,mat)=>{geo.applyMatrix4(M0.Rinv);const n=geo.attributes.position.count,si=new Uint16Array(n*4),sw=new Float32Array(n*4);for(let i=0;i<n;i++){si[i*4]=hbI;sw[i*4]=1}
+geo.setAttribute('skinIndex',new THREE.BufferAttribute(si,4));geo.setAttribute('skinWeight',new THREE.BufferAttribute(sw,4));
+const me=new THREE.SkinnedMesh(geo,mat);me.name='HeadGear';me.matrix.copy(m0.matrix);me.matrix.decompose(me.position,me.quaternion,me.scale);me.bind(m0.skeleton,m0.bindMatrix);me.frustumCulled=false;m0.parent.add(me);return me};
+const acc=[],part=(geo,col)=>acc.push([geo,col]);
+let zf=-1e9;for(let i=0;i<M0.n;i++){const u=(M0.Y[i]-hy0)/hh;if(M0.T[i]>.885&&u>.45&&u<.66&&Math.abs(M0.X[i]-cx)<hw*.3&&M0.Z[i]>zf)zf=M0.Z[i]}
 if(zf<-1e8)zf=cz+hd*.45;
 const er=.0075*H,sph=new THREE.SphereGeometry(1,8,6);
 [-1,1].forEach(s=>part(clPlace(sph,cx+s*hw*.2,hy0+.56*hh,zf-.3*er,er,er,er*.6),0x141414));
 if(st=='suit'||st=='waiter')part(clPlace(new THREE.SphereGeometry(1,16,10,0,Math.PI*2,0,Math.PI*.5),cx,hy0+.66*hh,cz,hw*.56,hh*.46,hd*.56),0x1a1a1a);
 if(st=='thobe'){
-const hm=o.hat=='rw'?SHM:WHM;
-B(clPlace(new THREE.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI*.52),cx,hy0+.7*hh,cz,hw*.6,hh*.5,hd*.6),hm);
-B(clPlace(new THREE.CylinderGeometry(1,1.3,1,24,3,true,Math.PI*.4,Math.PI*1.2),cx,hy0+.2*hh,cz,hw*.58,hh,hd*.58),hm);
+const hm=o.hat=='rw'?CSH:CWH;
+skinPart(clPlace(new THREE.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI*.52),cx,hy0+.7*hh,cz,hw*.6,hh*.5,hd*.6),hm);
+skinPart(clPlace(new THREE.CylinderGeometry(1,1.3,1,24,3,true,Math.PI*.4,Math.PI*1.2),cx,hy0+.2*hh,cz,hw*.58,hh,hd*.58),hm);
 part(clPlace(new THREE.TorusGeometry(1,.1,6,24),cx,hy0+.72*hh,cz,hw*.6,hd*.6,hw*.6*1.3,Math.PI/2),0x111111);
 if(o.beard)part(clPlace(sph,cx,hy0+.2*hh,cz+hd*.22,hw*.38,hh*.2,hd*.3),0x222222)}
 else if(st=='chef'){part(clPlace(new THREE.CylinderGeometry(1,1,1,18),cx,hy0+1.02*hh,cz,hw*.58,hh*.5,hd*.58),0xffffff);part(clPlace(sph,cx,hy0+1.3*hh,cz,hw*.72,hh*.38,hd*.72),0xffffff)}
 else if(st=='cleaner'){part(clPlace(new THREE.SphereGeometry(1,16,10,0,Math.PI*2,0,Math.PI*.5),cx,hy0+.68*hh,cz,hw*.58,hh*.45,hd*.58),0x3a3f44);part(clPlace(new THREE.BoxGeometry(1,1,1),cx,hy0+.68*hh,cz+hd*.62,hw*.6,hh*.04,hd*.5),0x3a3f44)}
-if(acc.length){const me=new THREE.Mesh(put(clMerge(acc)),CAM);me.name='HeadParts';tgt.add(me)}
+if(acc.length)skinPart(clMerge(acc),CAM);
+console.info('تلبيس',st,'ارتفاع الجسم',H.toFixed(2),'عظمة الرأس',m0.skeleton.bones[hbI]&&m0.skeleton.bones[hbI].name,'أبعاد الرأس',hw.toFixed(2),hh.toFixed(2),hd.toFixed(2));
 }
 function upgradeAvatar(g){if(!avatarGLTF||!g||!g.parent||g.userData.avatarUpgraded)return;try{
 const root=THREE.SkeletonUtils.clone(avatarGLTF.scene);root.name='AnimatedMannequin';
@@ -547,7 +550,7 @@ else if(st=='cleaner'){q.fillStyle='#3a3f44';q.beginPath();q.arc(28,27,14,Math.P
 else{q.fillStyle='#1a1a1a';q.beginPath();q.arc(28,27,14,Math.PI,0);q.fill();if(st=='waiter'){q.fillStyle='#111';q.fillRect(22,46,12,4)}}}
 q.restore()}
 let pvS=null;
-function pvStart(){try{const c=$('pvc'),r=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true}),s=new THREE.Scene(),cm=new THREE.PerspectiveCamera(32,130/170,.1,50);r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.setSize(130,170,false);s.add(new THREE.HemisphereLight(0xffffff,0x887766,1.1));const d=new THREE.DirectionalLight(0xffffff,.6);d.position.set(3,5,6);s.add(d);cm.position.set(0,1.18,6.6);cm.lookAt(0,1.12,0);pvS={r,s,cm,m:null};pvSet();const f=()=>{if(!pvS)return;if(pvS.m)pvS.m.rotation.y+=.012;r.render(s,cm);pvS.raf=requestAnimationFrame(f)};f()}catch(e){pvS=null}}
+function pvStart(){try{const c=$('pvc'),r=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true}),s=new THREE.Scene(),cm=new THREE.PerspectiveCamera(32,130/170,.1,50);r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.setSize(130,170,false);s.add(new THREE.HemisphereLight(0xffffff,0x887766,1.1));const d=new THREE.DirectionalLight(0xffffff,.6);d.position.set(3,5,6);s.add(d);cm.position.set(0,1.18,6.6);cm.lookAt(0,1.12,0);pvS={r,s,cm,m:null};pvSet();const f=()=>{if(!pvS)return;if(pvS.m){pvS.m.rotation.y+=.012;if(pvS.m.avatarMixer)pvS.m.avatarMixer.update(.016)}r.render(s,cm);pvS.raf=requestAnimationFrame(f)};f()}catch(e){pvS=null}}
 function pvSet(){if(!pvS)return;if(pvS.m)pvS.s.remove(pvS.m);pvS.m=person(popt(S.prof),pvS.s);pvS.m.rotation.y=.4}
 function drawPf(){const p=S.prof,m=p.sex!='f',B=(a,t,on,dis)=>'<button class="tb'+(on?' on':'')+'" data-pf="'+a+'"'+(dis?' disabled':'')+'>'+t+'</button>',sp=t=>'<span style="font-size:12px;opacity:.8">'+t+'</span>';
 let h=sp('الشخصية')+'<div class="row">'+B('s:m','ذكر',m)+B('s:f','أنثى',!m)+'</div>'+sp('الملابس')+'<div class="row">';
